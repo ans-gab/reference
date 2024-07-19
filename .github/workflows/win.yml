@@ -1,28 +1,35 @@
-name: Win CI
+name: 每8个小时更新一次reference
 on:
-  push:
-    branches:
-      - main
+  schedule:
+    - cron: '21 */8 * * *' # 定时任务
+  workflow_dispatch:       # 手动运行
+
+env: # 设置环境变量
+  TZ: Asia/Shanghai # 时区（设置时区可使页面中的`最近更新时间`使用时区时间）
 
 jobs:
-  build:
-    if: github.repository == 'jaywcjlove/reference'
-    runs-on: windows-latest
+  build: # 自定义名称
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: 🚜 拉取最新代码
+        uses: actions/checkout@v3
         with:
-          node-version: 20
+          ref: 'main'
+          repository: 'jaywcjlove/reference'
 
-      - run: npm install
-      - run: npm run build
-      - run: |
-          cd ${{ github.workspace }}
-          ls
-          cd dist
-          ls
+      - name: ♻️ 编译静态文件
+        run: |
+          echo -e 'REF_URL=https://refs.xxx.net/\nREF_LABEL=https://ref.superson.com' > .env
+          npm install
+          npm run build
 
-      - uses: actions/upload-artifact@v4
+      - name: 🚁 部署到服务器
+        uses: wlixcc/SFTP-Deploy-Action@v1.0
         with:
-          name: dist
-          path: ${{ github.workspace }}\dist\**\*
+          username: 'root'   #ssh user name
+          port: '22' # 远程服务器ssh端口，默认22
+          server: '62.234.39.131' # 远程服务器IP
+          ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }} # 认证服务器秘钥对的私钥
+          local_path: './dist/*'  # 对应我们项目打包后的静态文件路径
+          remote_path: '/www/wwwroot/ref.su-person.com' # 服务器上的路径
+          delete_remote_files: true
